@@ -12,28 +12,14 @@ import cv2
 import numpy as np
 from shapely.geometry import Polygon
 
-CONFIG = {
-    "video_path": "synthetic_pitch_feed.mp4",
-    "target_fps": 30,
-    "confidence_threshold": 0.5,
-    "field_detector": {
-        "type": "sam_mask_v1",
-        "sport": "football",
-        "min_area": 1000,
-    },
-    "crop_search": {
-        "aspect_ratio": "16:9",
-        "padding_px": 20,
-    },
-    "debug_mode": True,
-}
+from pitch_engine.config import PipelineConfig
 
 
 class FieldBoundaryAnalyzer:
-    def __init__(self, config: dict):
+    def __init__(self, config: PipelineConfig):
         self.config = config
-        self.sport = config.get("field_detector", {}).get("sport", "soccer")
-        self.threshold = config.get("confidence_threshold", 0.5)
+        self.sport = config.field_detector.sport
+        self.threshold = config.confidence_threshold
 
     def process_video(self, video_path: str):
         print(f"Starting processing for video: {video_path}")
@@ -80,7 +66,7 @@ class FieldBoundaryAnalyzer:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if contours:
                 largest = max(contours, key=cv2.contourArea)
-                if cv2.contourArea(largest) > self.config.get("field_detector", {}).get("min_area", 500):
+                if cv2.contourArea(largest) > self.config.field_detector.min_area:
                     pts = largest.reshape(-1, 2)
                     if len(pts) >= 3:
                         return Polygon(pts)
