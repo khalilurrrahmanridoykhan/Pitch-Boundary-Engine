@@ -12,8 +12,6 @@ import cv2
 import numpy as np
 from shapely.geometry import Polygon
 
-from synthetic_generator import generate_synthetic_video
-
 CONFIG = {
     "video_path": "synthetic_pitch_feed.mp4",
     "target_fps": 30,
@@ -89,16 +87,3 @@ class FieldBoundaryAnalyzer:
         except Exception:
             pass
         return None
-
-
-def run_pipeline():
-    # Helper to generate input file if it doesn't exist locally
-    generate_synthetic_video(CONFIG["video_path"])
-
-    analyzer = FieldBoundaryAnalyzer(CONFIG)
-    results = analyzer.process_video(CONFIG["video_path"])
-    print(f"Pipeline finished with {len(results) if results else 0} results.")
-
-
-if __name__ == "__main__":
-    run_pipeline()
