@@ -8,6 +8,7 @@ from pitch_engine.config import ConfigError, load_config
 VALID = {
     "video_path": "feed.mp4",
     "target_fps": 30,
+    "sample_interval_seconds": 1.0,
     "confidence_threshold": 0.5,
     "field_detector": {"type": "sam_mask_v1", "sport": "football", "min_area": 1000},
     "crop_search": {"aspect_ratio": "16:9", "padding_px": 20},
@@ -52,6 +53,9 @@ def test_invalid_json_is_a_config_error(tmp_path):
         (lambda d: d["crop_search"].update(extra=1), "crop_search.extra"),
         (lambda d: d.update(target_fps=0), "target_fps"),
         (lambda d: d.update(target_fps="fast"), "target_fps"),
+        (lambda d: d.update(sample_interval_seconds=0), "sample_interval_seconds"),
+        (lambda d: d.update(sample_interval_seconds=-1), "sample_interval_seconds"),
+        (lambda d: d.pop("sample_interval_seconds"), "sample_interval_seconds"),
         (lambda d: d.update(confidence_threshold=1.5), "confidence_threshold"),
         (lambda d: d["field_detector"].update(min_area=-5), "field_detector.min_area"),
         (lambda d: d["field_detector"].update(type="unknown"), "field_detector.type"),
