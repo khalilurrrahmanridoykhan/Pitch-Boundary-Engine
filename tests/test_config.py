@@ -3,17 +3,8 @@ import json
 
 import pytest
 
+from helpers import VALID_CONFIG as VALID
 from pitch_engine.config import ConfigError, load_config
-
-VALID = {
-    "video_path": "feed.mp4",
-    "target_fps": 30,
-    "sample_interval_seconds": 1.0,
-    "confidence_threshold": 0.5,
-    "field_detector": {"type": "sam_mask_v1", "sport": "football", "min_area": 1000},
-    "crop_search": {"aspect_ratio": "16:9", "padding_px": 20},
-    "debug_mode": True,
-}
 
 
 def write(tmp_path, data):
@@ -57,6 +48,11 @@ def test_invalid_json_is_a_config_error(tmp_path):
         (lambda d: d.update(sample_interval_seconds=-1), "sample_interval_seconds"),
         (lambda d: d.pop("sample_interval_seconds"), "sample_interval_seconds"),
         (lambda d: d.update(confidence_threshold=1.5), "confidence_threshold"),
+        (lambda d: d.update(progress_every_samples=0), "progress_every_samples"),
+        (lambda d: d.update(max_frame_coverage=0), "max_frame_coverage"),
+        (lambda d: d.update(max_frame_coverage=1.2), "max_frame_coverage"),
+        (lambda d: d.update(max_consecutive_failures=0), "max_consecutive_failures"),
+        (lambda d: d.pop("max_consecutive_failures"), "max_consecutive_failures"),
         (lambda d: d["field_detector"].update(min_area=-5), "field_detector.min_area"),
         (lambda d: d["field_detector"].update(type="unknown"), "field_detector.type"),
         (lambda d: d["crop_search"].update(aspect_ratio="wide"), "crop_search.aspect_ratio"),

@@ -6,9 +6,7 @@ from typing import Iterator
 import cv2
 import numpy as np
 
-
-class VideoSourceError(Exception):
-    """The video source could not be opened or does not describe itself usably."""
+from pitch_engine.errors import VideoSourceError
 
 
 class VideoSource:
@@ -37,12 +35,14 @@ class VideoSource:
     def stride_for(self, interval_seconds: float) -> int:
         return max(1, round(interval_seconds * self.fps))
 
-    def sample(self, interval_seconds: float) -> Iterator[tuple[int, np.ndarray]]:
+    def sample(self, interval_seconds: float) -> Iterator[tuple[int, np.ndarray | None]]:
         """Yield (0-based frame index, BGR frame) for one frame per interval.
 
-        Frames in between are never converted or handed to the detector. With a known
-        frame count the source seeks straight to each sample; otherwise it advances
-        with grab(), which works on streams that cannot seek.
+        The frame is None when that sample could not be read, so the caller can count
+        the failure instead of the run quietly ending early. Frames in between are never
+        converted or handed to the detector. With a known frame count the source seeks
+        straight to each sample; otherwise it advances with grab(), which works on
+        streams that cannot seek.
         """
         stride = self.stride_for(interval_seconds)
         if self.frame_count > 0:
@@ -50,22 +50,20 @@ class VideoSource:
         else:
             yield from self._sample_by_grabbing(stride)
 
-    def _sample_by_seeking(self, stride: int) -> Iterator[tuple[int, np.ndarray]]:
+    def _sample_by_seeking(self, stride: int) -> Iterator[tuple[int, np.ndarray | None]]:
         for index in range(0, self.frame_count, stride):
             self._cap.set(cv2.CAP_PROP_POS_FRAMES, index)
             ok, frame = self._cap.read()
-            if not ok:
-                return
-            yield index, frame
+            yield index, frame if ok else None
 
-    def _sample_by_grabbing(self, stride: int) -> Iterator[tuple[int, np.ndarray]]:
+    def _sample_by_grabbing(self, stride: int) -> Iterator[tuple[int, np.ndarray | None]]:
+        # grab() returning False is the end of the stream; it cannot be told apart from a
+        # dropped connection here, so a live source that dies simply ends the run.
         index = 0
         while self._cap.grab():
             if index % stride == 0:
                 ok, frame = self._cap.retrieve()
-                if not ok:
-                    return
-                yield index, frame
+                yield index, frame if ok else None
             index += 1
 
     def release(self) -> None:
