@@ -4,6 +4,7 @@ import sys
 from pitch_engine.analyzer import FieldBoundaryAnalyzer
 from pitch_engine.config import ConfigError, load_config
 from pitch_engine.detectors import build_detector
+from pitch_engine.video import VideoSourceError
 from synthetic_generator import generate_synthetic_video
 
 
@@ -20,8 +21,12 @@ def main(argv=None) -> int:
 
     generate_synthetic_video(config.video_path)
     detector = build_detector(config.field_detector)
-    results = FieldBoundaryAnalyzer(config, detector).process_video(config.video_path)
-    print(f"Pipeline finished with {len(results) if results else 0} results.")
+    try:
+        results = FieldBoundaryAnalyzer(config, detector).process_video(config.video_path)
+    except VideoSourceError as exc:
+        print(f"Video error: {exc}", file=sys.stderr)
+        return 1
+    print(f"Pipeline finished with {len(results)} results.")
     return 0
 
 

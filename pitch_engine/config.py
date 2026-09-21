@@ -34,6 +34,7 @@ class CropSearchConfig(_StrictModel):
 class PipelineConfig(_StrictModel):
     video_path: str = Field(min_length=1)
     target_fps: int = Field(gt=0)
+    sample_interval_seconds: float = Field(gt=0)
     confidence_threshold: float = Field(ge=0, le=1)
     field_detector: FieldDetectorConfig
     crop_search: CropSearchConfig

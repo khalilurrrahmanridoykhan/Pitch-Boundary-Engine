@@ -7,12 +7,11 @@ computing camera crop layouts across video feeds.
 DO NOT USE IN PRODUCTION.
 """
 
-import time
-import cv2
-from shapely.geometry import Polygon
+from shapely.geometry import box
 
 from pitch_engine.config import PipelineConfig
 from pitch_engine.detectors import FieldDetector
+from pitch_engine.video import VideoSource
 
 
 class FieldBoundaryAnalyzer:
@@ -22,32 +21,22 @@ class FieldBoundaryAnalyzer:
 
     def process_video(self, video_path: str):
         print(f"Starting processing for video: {video_path}")
-        cap = cv2.VideoCapture(video_path)
-
-        if not cap.isOpened():
-            print("Error: Could not open video stream.")
-            return
-
-        frame_count = 0
         detected_polygons = []
+        sampled = 0
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+        with VideoSource(video_path) as source:
+            # Built once per run, from the real frame size.
+            frame_area = box(0, 0, source.width, source.height)
 
-            frame_count += 1
+            for frame_index, frame in source.sample(self.config.sample_interval_seconds):
+                sampled += 1
+                poly = self.detector.detect(frame)
 
-            poly = self.detector.detect(frame)
+                if poly and poly.is_valid:
+                    intersection_area = poly.intersection(frame_area).area
+                    detected_polygons.append((frame_index, poly, intersection_area))
 
-            if poly and poly.is_valid:
-                outer_boundary = Polygon([(0, 0), (1280, 0), (1280, 720), (0, 720)])
-                intersection_area = poly.intersection(outer_boundary).area
-                detected_polygons.append((frame_count, poly, intersection_area))
+            total = source.frame_count
 
-            # Simulate heavy per-frame processing latency
-            time.sleep(0.005)
-
-        cap.release()
-        print(f"Processed {frame_count} frames. Found {len(detected_polygons)} boundaries.")
+        print(f"Inspected {sampled} of {total} frames. Found {len(detected_polygons)} boundaries.")
         return detected_polygons
