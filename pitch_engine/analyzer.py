@@ -1,6 +1,7 @@
 """Runs a field detector over sampled frames and aggregates the valid detections."""
 
 import logging
+from typing import Callable
 
 import numpy as np
 from shapely.geometry import Polygon, box
@@ -8,7 +9,7 @@ from shapely.geometry import Polygon, box
 from pitch_engine.config import PipelineConfig
 from pitch_engine.detectors import FieldDetector
 from pitch_engine.errors import NoValidDetectionsError, SustainedFailureError
-from pitch_engine.models import FAILURE_REASONS, RunStats, RunSummary, SkipReason
+from pitch_engine.models import FAILURE_REASONS, ProgressReport, RunStats, RunSummary, SkipReason
 from pitch_engine.video import VideoSource
 
 logger = logging.getLogger(__name__)
@@ -19,10 +20,16 @@ class FieldBoundaryAnalyzer:
         self.config = config
         self.detector = detector
 
-    def process_video(self, video_path: str, run_id: str) -> RunSummary:
+    def process_video(
+        self,
+        video_path: str,
+        run_id: str,
+        on_progress: Callable[[ProgressReport], object] | None = None,
+    ) -> RunSummary:
         """Inspect sampled frames and return the aggregated result.
 
         Frames with no usable boundary are counted by reason and kept out of the metrics.
+        `on_progress` is called at the configured cadence and must not raise.
         Raises PipelineError subclasses for failures that end the run.
         """
         stats = RunStats()
@@ -64,15 +71,32 @@ class FieldBoundaryAnalyzer:
                     )
 
                 if stats.sampled % self.config.progress_every_samples == 0:
+                    progress = stats.summary(run_id, video_path, total_frames)
                     logger.info(
                         "progress",
                         extra={
                             "frame_index": frame_index,
                             "total_frames": total_frames,
                             "sampled_frames": stats.sampled,
-                            "summary": stats.summary(run_id, video_path, total_frames).model_dump(mode="json"),
+                            "summary": progress.model_dump(mode="json"),
                         },
                     )
+                    if on_progress is not None:
+                        on_progress(
+                            ProgressReport(
+                                run_id=run_id,
+                                frame_index=frame_index,
+                                total_frames=total_frames,
+                                sampled_frames=stats.sampled,
+                                valid_detections=stats.valid,
+                                skipped_frames=stats.sampled - stats.valid,
+                                percent=(
+                                    min(100.0, round(100 * frame_index / total_frames, 1))
+                                    if total_frames > 0
+                                    else None
+                                ),
+                            )
+                        )
 
         summary = stats.summary(run_id, video_path, total_frames)
         if summary.valid_detections == 0:

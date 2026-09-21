@@ -2,7 +2,8 @@ import json
 
 from helpers import config_dict
 
-from run_pipeline import EXIT_BAD_CONFIG, EXIT_RUN_FAILED, main
+from pitch_engine.runner import EXIT_BAD_CONFIG, EXIT_RUN_FAILED
+from run_pipeline import main
 
 
 def write_config(tmp_path, **overrides):
