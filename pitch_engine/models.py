@@ -1,9 +1,11 @@
 """Result models. Detections are aggregated as they arrive, so memory stays flat on long feeds."""
 
 from collections import Counter
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class SkipReason(str, Enum):
@@ -39,6 +41,48 @@ class RunSummary(BaseModel):
     area_px: AreaStats | None  # None when there were no valid detections
 
 
+class ProgressReport(BaseModel):
+    """Sent to the reporting service while a run is in flight."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: str
+    frame_index: int = Field(ge=0)
+    total_frames: int = Field(ge=0)  # 0 when the source does not report a length
+    sampled_frames: int = Field(ge=0)
+    valid_detections: int = Field(ge=0)
+    skipped_frames: int = Field(ge=0)
+    percent: float | None = Field(ge=0, le=100)  # None when the total is unknown
+
+
+class EventType(str, Enum):
+    STARTED = "started"
+    FINISHED = "finished"
+    FAILED = "failed"
+
+
+class RunEvent(BaseModel):
+    """Sent to the reporting service when a run starts and when it ends, either way."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    run_id: str
+    event: EventType
+    video_path: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    summary: RunSummary | None = None  # always set when finished, set on failure if known
+    error: str | None = None  # always set when failed
+    error_type: str | None = None
+
+    @model_validator(mode="after")
+    def _outcome_carries_its_details(self) -> Self:
+        if self.event is EventType.FINISHED and self.summary is None:
+            raise ValueError("a finished event must carry the run summary")
+        if self.event is EventType.FAILED and not self.error:
+            raise ValueError("a failed event must carry an error message")
+        return self
+
+
 class RunStats:
     """Running totals for one run."""
 
@@ -48,6 +92,10 @@ class RunStats:
         self._area_sum = 0.0
         self._area_min = float("inf")
         self._area_max = 0.0
+
+    @property
+    def valid(self) -> int:
+        return self._valid
 
     @property
     def sampled(self) -> int:
