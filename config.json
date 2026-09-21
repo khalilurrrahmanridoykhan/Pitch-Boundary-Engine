@@ -15,5 +15,6 @@
     "aspect_ratio": "16:9",
     "padding_px": 20
   },
-  "debug_mode": true
+  "debug_mode": true,
+  "reporting": null
 }

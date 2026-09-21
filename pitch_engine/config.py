@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, StrictBool, ValidationError
 
 
 class ConfigError(Exception):
@@ -31,6 +31,15 @@ class CropSearchConfig(_StrictModel):
     padding_px: int = Field(ge=0)
 
 
+class ReportingConfig(_StrictModel):
+    base_url: AnyHttpUrl
+    timeout_seconds: float = Field(gt=0)
+    # Extra attempts for start/finish/failure events. Progress updates are never retried.
+    event_retries: int = Field(ge=0)
+    # After this many failed deliveries in a row, progress updates pause until an event gets through.
+    suspend_progress_after_failures: int = Field(gt=0)
+
+
 class PipelineConfig(_StrictModel):
     video_path: str = Field(min_length=1)
     target_fps: int = Field(gt=0)
@@ -44,6 +53,8 @@ class PipelineConfig(_StrictModel):
     field_detector: FieldDetectorConfig
     crop_search: CropSearchConfig
     debug_mode: StrictBool
+    # Required, but null turns reporting off (local runs without the platform).
+    reporting: ReportingConfig | None
 
 
 def load_config(path: str | Path) -> PipelineConfig:

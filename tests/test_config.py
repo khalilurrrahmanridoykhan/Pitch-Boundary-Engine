@@ -7,6 +7,14 @@ from helpers import VALID_CONFIG as VALID
 from pitch_engine.config import ConfigError, load_config
 
 
+REPORTING = {
+    "base_url": "http://mock_api:5000",
+    "timeout_seconds": 2.0,
+    "event_retries": 3,
+    "suspend_progress_after_failures": 3,
+}
+
+
 def write(tmp_path, data):
     path = tmp_path / "config.json"
     path.write_text(data if isinstance(data, str) else json.dumps(data))
@@ -23,6 +31,12 @@ def test_valid_config_loads(tmp_path):
     config = load_config(write(tmp_path, VALID))
     assert config.field_detector.min_area == 1000
     assert config.crop_search.aspect_ratio == "16:9"
+
+
+def test_reporting_can_be_configured_or_switched_off(tmp_path):
+    assert load_config(write(tmp_path, VALID)).reporting is None
+    config = load_config(write(tmp_path, {**VALID, "reporting": REPORTING}))
+    assert str(config.reporting.base_url).rstrip("/") == "http://mock_api:5000"
 
 
 def test_missing_file_is_a_config_error(tmp_path):
@@ -58,6 +72,13 @@ def test_invalid_json_is_a_config_error(tmp_path):
         (lambda d: d["crop_search"].update(aspect_ratio="wide"), "crop_search.aspect_ratio"),
         (lambda d: d["crop_search"].update(aspect_ratio="0:9"), "crop_search.aspect_ratio"),
         (lambda d: d.update(debug_mode="yes"), "debug_mode"),
+        (lambda d: d.pop("reporting"), "reporting"),
+        (lambda d: d.update(reporting={**REPORTING, "base_url": "not a url"}), "reporting.base_url"),
+        (lambda d: d.update(reporting={**REPORTING, "base_url": "ftp://host"}), "reporting.base_url"),
+        (lambda d: d.update(reporting={**REPORTING, "timeout_seconds": 0}), "reporting.timeout_seconds"),
+        (lambda d: d.update(reporting={**REPORTING, "event_retries": -1}), "reporting.event_retries"),
+        (lambda d: d.update(reporting={**REPORTING, "suspend_progress_after_failures": 0}), "reporting.suspend_progress_after_failures"),
+        (lambda d: d.update(reporting={**REPORTING, "surprise": 1}), "reporting.surprise"),
     ],
 )
 def test_bad_config_names_the_offending_field(tmp_path, mutate, field):

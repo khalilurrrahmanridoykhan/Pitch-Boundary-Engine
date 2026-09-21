@@ -13,6 +13,7 @@ VALID_CONFIG = {
     "field_detector": {"type": "sam_mask_v1", "sport": "football", "min_area": 1000},
     "crop_search": {"aspect_ratio": "16:9", "padding_px": 20},
     "debug_mode": True,
+    "reporting": None,
 }
 
 
